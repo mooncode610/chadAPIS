@@ -6,7 +6,6 @@ const auth = require('../../middleware/auth');
 const { check, validationResult } = require('express-validator');
 // bring in normalize to give us a proper url, regardless of what user entered
 const normalize = require('normalize-url');
-const checkObjectId = require('../../middleware/checkObjectId');
 
 const Profile = require('../../models/Profile');
 const User = require('../../models/User');
@@ -19,13 +18,14 @@ router.get('/me', auth, async (req, res) => {
   try {
     const profile = await Profile.findOne({
       user: req.user.id
-    }).populate('user', ['name', 'avatar']);
+    });
 
     if (!profile) {
       return res.status(400).json({ msg: 'There is no profile for this user' });
     }
 
-    res.json(profile);
+    // only populate from user document if profile exists
+    res.json(profile.populate('user', ['name', 'avatar']));
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -40,8 +40,12 @@ router.post(
   [
     auth,
     [
-      check('status', 'Status is required').not().isEmpty(),
-      check('skills', 'Skills is required').not().isEmpty()
+      check('status', 'Status is required')
+        .not()
+        .isEmpty(),
+      check('skills', 'Skills is required')
+        .not()
+        .isEmpty()
     ]
   ],
   async (req, res) => {
@@ -72,7 +76,7 @@ router.post(
       bio,
       skills: Array.isArray(skills)
         ? skills
-        : skills.split(',').map((skill) => ' ' + skill.trim()),
+        : skills.split(',').map(skill => ' ' + skill.trim()),
       status,
       githubusername
     };
@@ -117,24 +121,23 @@ router.get('/', async (req, res) => {
 // @route    GET api/profile/user/:user_id
 // @desc     Get profile by user ID
 // @access   Public
-router.get(
-  '/user/:user_id',
-  checkObjectId('user_id'),
-  async ({ params: { user_id } }, res) => {
-    try {
-      const profile = await Profile.findOne({
-        user: user_id
-      }).populate('user', ['name', 'avatar']);
+router.get('/user/:user_id', async (req, res) => {
+  try {
+    const profile = await Profile.findOne({
+      user: req.params.user_id
+    }).populate('user', ['name', 'avatar']);
 
-      if (!profile) return res.status(400).json({ msg: 'Profile not found' });
+    if (!profile) return res.status(400).json({ msg: 'Profile not found' });
 
-      return res.json(profile);
-    } catch (err) {
-      console.error(err.message);
-      return res.status(500).json({ msg: 'Server error' });
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'Profile not found' });
     }
+    res.status(500).send('Server Error');
   }
-);
+});
 
 // @route    DELETE api/profile
 // @desc     Delete profile, user & posts
@@ -163,8 +166,12 @@ router.put(
   [
     auth,
     [
-      check('title', 'Title is required').not().isEmpty(),
-      check('company', 'Company is required').not().isEmpty(),
+      check('title', 'Title is required')
+        .not()
+        .isEmpty(),
+      check('company', 'Company is required')
+        .not()
+        .isEmpty(),
       check('from', 'From date is required and needs to be from the past')
         .not()
         .isEmpty()
@@ -221,7 +228,7 @@ router.delete('/experience/:exp_id', auth, async (req, res) => {
     const foundProfile = await Profile.findOne({ user: req.user.id });
 
     foundProfile.experience = foundProfile.experience.filter(
-      (exp) => exp._id.toString() !== req.params.exp_id
+      exp => exp._id.toString() !== req.params.exp_id
     );
 
     await foundProfile.save();
@@ -240,9 +247,15 @@ router.put(
   [
     auth,
     [
-      check('school', 'School is required').not().isEmpty(),
-      check('degree', 'Degree is required').not().isEmpty(),
-      check('fieldofstudy', 'Field of study is required').not().isEmpty(),
+      check('school', 'School is required')
+        .not()
+        .isEmpty(),
+      check('degree', 'Degree is required')
+        .not()
+        .isEmpty(),
+      check('fieldofstudy', 'Field of study is required')
+        .not()
+        .isEmpty(),
       check('from', 'From date is required and needs to be from the past')
         .not()
         .isEmpty()
@@ -298,7 +311,7 @@ router.delete('/education/:edu_id', auth, async (req, res) => {
   try {
     const foundProfile = await Profile.findOne({ user: req.user.id });
     foundProfile.education = foundProfile.education.filter(
-      (edu) => edu._id.toString() !== req.params.edu_id
+      edu => edu._id.toString() !== req.params.edu_id
     );
     await foundProfile.save();
     return res.status(200).json(foundProfile);
