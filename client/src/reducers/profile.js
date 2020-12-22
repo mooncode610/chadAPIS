@@ -16,7 +16,7 @@ const initialState = {
   error: {}
 };
 
-function profileReducer(state = initialState, action) {
+export default function (state = initialState, action) {
   const { type, payload } = action;
 
   switch (type) {
@@ -61,5 +61,3 @@ function profileReducer(state = initialState, action) {
       return state;
   }
 }
-
-export default profileReducer;
